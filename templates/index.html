@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Geomagnetic Storm Predictor</title>
+  <style>
+    :root {
+      --bg: #eef1f5;
+      --panel: #ffffff;
+      --ink: #17212b;
+      --muted: #697683;
+      --line: #d8dee7;
+      --field: #f8fafc;
+      --teal: #007f7a;
+      --blue: #2f5fff;
+      --green: #15803d;
+      --amber: #b65f00;
+      --red: #bd1e3a;
+      --violet: #6d42b7;
+      --shadow: 0 18px 45px rgba(28, 38, 52, 0.11);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(238, 241, 245, 0.94)),
+        radial-gradient(circle at top left, rgba(0, 127, 122, 0.14), transparent 28rem),
+        var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.45;
+      min-height: 100vh;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      min-height: 2.6rem;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 750;
+      transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.58;
+    }
+
+    .app-shell {
+      width: min(1180px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 1.5rem 0 2rem;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.75rem 0 1.25rem;
+    }
+
+    .eyebrow {
+      color: var(--teal);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      margin: 0 0 0.25rem;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 4vw, 4rem);
+      line-height: 0.95;
+      margin-bottom: 0;
+      max-width: 12ch;
+    }
+
+    h2 {
+      font-size: 1rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .status-pill {
+      align-items: center;
+      background: #f5faf8;
+      border: 1px solid #c9e2d5;
+      border-radius: 999px;
+      color: var(--green);
+      display: inline-flex;
+      font-size: 0.86rem;
+      font-weight: 800;
+      gap: 0.45rem;
+      padding: 0.5rem 0.8rem;
+      white-space: nowrap;
+    }
+
+    .status-pill::before {
+      background: currentColor;
+      border-radius: 50%;
+      content: "";
+      height: 0.58rem;
+      width: 0.58rem;
+    }
+
+    .status-pill.offline {
+      background: #fff7ed;
+      border-color: #fed7aa;
+      color: var(--amber);
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.8fr);
+      gap: 1rem;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(216, 222, 231, 0.92);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 1rem;
+    }
+
+    .input-panel {
+      min-width: 0;
+    }
+
+    .result-panel {
+      align-self: start;
+      min-height: 32rem;
+    }
+
+    .batch-panel {
+      grid-column: 1 / -1;
+    }
+
+    .section-head {
+      align-items: start;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .section-head p,
+    .helper,
+    .meta-line {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 0;
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+    }
+
+    .field {
+      background: var(--field);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: grid;
+      gap: 0.45rem;
+      min-width: 0;
+      padding: 0.85rem;
+    }
+
+    .field span:first-child {
+      align-items: baseline;
+      display: flex;
+      gap: 0.45rem;
+      justify-content: space-between;
+    }
+
+    .field strong {
+      font-size: 0.9rem;
+    }
+
+    .field small {
+      color: var(--teal);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .field input {
+      background: #ffffff;
+      border: 1px solid #cfd8e3;
+      border-radius: 7px;
+      color: var(--ink);
+      min-height: 2.65rem;
+      padding: 0.55rem 0.65rem;
+      width: 100%;
+    }
+
+    .field input:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(47, 95, 255, 0.14);
+      outline: 0;
+    }
+
+    .range {
+      color: var(--muted);
+      font-size: 0.76rem;
+      min-height: 2.1rem;
+    }
+
+    .form-actions,
+    .batch-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-top: 1rem;
+    }
+
+    .primary {
+      background: var(--ink);
+      color: #ffffff;
+      padding: 0 1rem;
+    }
+
+    .secondary {
+      background: #e8f5f2;
+      color: #005f5b;
+      padding: 0 0.95rem;
+    }
+
+    .ghost {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      color: var(--ink);
+      padding: 0 0.95rem;
+    }
+
+    .scenario {
+      align-items: center;
+      color: var(--muted);
+      display: flex;
+      font-size: 0.86rem;
+      margin-top: 0.7rem;
+      min-height: 1.3rem;
+    }
+
+    .error {
+      color: var(--red);
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-top: 0.75rem;
+      min-height: 1.3rem;
+    }
+
+    .result-empty {
+      align-items: center;
+      border: 1px dashed var(--line);
+      border-radius: 8px;
+      color: var(--muted);
+      display: flex;
+      min-height: 14rem;
+      padding: 1rem;
+    }
+
+    .result-content {
+      display: none;
+    }
+
+    .result-content.show {
+      display: block;
+    }
+
+    .dst-value {
+      display: flex;
+      align-items: baseline;
+      gap: 0.45rem;
+      margin: 1.35rem 0 0.35rem;
+    }
+
+    .dst-value strong {
+      font-size: clamp(3rem, 7vw, 5.1rem);
+      letter-spacing: 0;
+      line-height: 0.9;
+    }
+
+    .dst-value span {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .class-pill {
+      border-radius: 999px;
+      display: inline-flex;
+      font-size: 0.88rem;
+      font-weight: 850;
+      padding: 0.38rem 0.68rem;
+    }
+
+    .class-pill.quiet { background: #e7f7ed; color: var(--green); }
+    .class-pill.weak { background: #e6f4ff; color: #0369a1; }
+    .class-pill.moderate { background: #fff7d6; color: #925000; }
+    .class-pill.strong { background: #ffead5; color: #9a3412; }
+    .class-pill.severe { background: #ffe4e6; color: var(--red); }
+    .class-pill.extreme { background: #efe7ff; color: var(--violet); }
+
+    .effects {
+      color: var(--ink);
+      font-size: 1rem;
+      margin: 0.9rem 0 1.2rem;
+    }
+
+    .severity-track {
+      background: linear-gradient(90deg, #15803d, #0284c7, #d8a100, #ea580c, #be123c, #6d42b7);
+      border-radius: 999px;
+      height: 0.8rem;
+      margin: 1.25rem 0 0.7rem;
+      position: relative;
+    }
+
+    .severity-marker {
+      background: #ffffff;
+      border: 3px solid var(--ink);
+      border-radius: 50%;
+      box-shadow: 0 4px 12px rgba(23, 33, 43, 0.2);
+      height: 1.45rem;
+      left: 8%;
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      transition: left 180ms ease;
+      width: 1.45rem;
+    }
+
+    .band-list {
+      display: grid;
+      gap: 0.4rem;
+      margin-top: 1.1rem;
+    }
+
+    .band-row {
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 0.5rem;
+      grid-template-columns: 6.5rem 1fr;
+      padding: 0.45rem 0;
+    }
+
+    .band-row:last-child {
+      border-bottom: 0;
+    }
+
+    .band-row strong {
+      font-size: 0.84rem;
+    }
+
+    .band-row span {
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    .uploader {
+      align-items: center;
+      border: 1px dashed #b8c4d2;
+      border-radius: 8px;
+      display: grid;
+      gap: 0.65rem;
+      grid-template-columns: minmax(0, 1fr) auto;
+      padding: 0.9rem;
+    }
+
+    input[type="file"] {
+      background: var(--field);
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      min-height: 2.6rem;
+      padding: 0.45rem;
+      width: 100%;
+    }
+
+    .summary {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-top: 0.8rem;
+      min-height: 1.3rem;
+    }
+
+    .table-wrap {
+      margin-top: 1rem;
+      max-height: 28rem;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      display: none;
+    }
+
+    table {
+      border-collapse: collapse;
+      min-width: 880px;
+      width: 100%;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.62rem 0.7rem;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f1f5f9;
+      color: #465667;
+      font-size: 0.76rem;
+      letter-spacing: 0;
+      position: sticky;
+      text-transform: uppercase;
+      top: 0;
+      z-index: 1;
+    }
+
+    td {
+      font-size: 0.88rem;
+    }
+
+    .invalid-list {
+      color: var(--amber);
+      font-size: 0.86rem;
+      margin-top: 0.6rem;
+    }
+
+    @media (max-width: 880px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+
+      .result-panel {
+        min-height: 0;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .app-shell {
+        width: min(100% - 1rem, 1180px);
+        padding-top: 0.7rem;
+      }
+
+      .topbar,
+      .section-head,
+      .uploader {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .topbar,
+      .section-head {
+        display: flex;
+      }
+
+      h1 {
+        font-size: 2.45rem;
+        max-width: 100%;
+      }
+
+      .input-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .form-actions button,
+      .batch-actions button {
+        flex: 1 1 11rem;
+      }
+
+      .band-row {
+        grid-template-columns: 1fr;
+        gap: 0.15rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <script id="app-config" type="application/json">{{ app_config | tojson }}</script>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Dst forecast workbench</p>
+        <h1>Geomagnetic Storm Predictor</h1>
+      </div>
+      <div class="status-pill {% if not app_config.model_ready %}offline{% endif %}">
+        {% if app_config.model_ready %}Model online{% else %}Model missing{% endif %}
+      </div>
+    </header>
+
+    <main class="workspace">
+      <section class="panel input-panel" aria-labelledby="input-title">
+        <div class="section-head">
+          <div>
+            <h2 id="input-title">Solar-wind input</h2>
+            <p>Enter one observed hour and estimate the Dst response.</p>
+          </div>
+        </div>
+
+        <form id="singleForm">
+          <div class="input-grid">
+            {% for feature in app_config.features %}
+              <label class="field" for="{{ feature.key }}">
+                <span>
+                  <strong>{{ feature.label }}</strong>
+                  <small>{{ feature.unit }}</small>
+                </span>
+                <input
+                  type="number"
+                  id="{{ feature.key }}"
+                  name="{{ feature.key }}"
+                  value="{{ feature.default }}"
+                  min="{{ feature.min }}"
+                  max="{{ feature.max }}"
+                  step="{{ feature.step }}"
+                  inputmode="decimal"
+                  required
+                />
+                <span class="range">{{ feature.hint }}</span>
+              </label>
+            {% endfor %}
+          </div>
+
+          <div class="form-actions">
+            <button class="primary" id="predictBtn" type="submit">Run prediction</button>
+            <button class="secondary" id="randomBtn" type="button">Scenario</button>
+            <button class="ghost" id="resetBtn" type="button">Reset</button>
+          </div>
+          <div class="scenario" id="scenarioText" aria-live="polite"></div>
+          <div class="error" id="singleErr" aria-live="polite"></div>
+        </form>
+      </section>
+
+      <aside class="panel result-panel" aria-labelledby="result-title">
+        <div class="section-head">
+          <div>
+            <h2 id="result-title">Prediction</h2>
+            <p>Dst estimate and operational severity band.</p>
+          </div>
+        </div>
+
+        <div class="result-empty" id="emptyState">
+          Run a prediction to see the storm classification.
+        </div>
+
+        <div class="result-content" id="resultContent">
+          <span class="class-pill quiet" id="classTag">Quiet</span>
+          <div class="dst-value">
+            <strong id="dstValue">0</strong>
+            <span>nT</span>
+          </div>
+          <p class="effects" id="effects"></p>
+          <div class="severity-track" aria-hidden="true">
+            <div class="severity-marker" id="severityMarker"></div>
+          </div>
+          <p class="meta-line" id="severityRange"></p>
+        </div>
+
+        <div class="band-list" aria-label="Severity bands">
+          {% for band in app_config.severity_bands %}
+            <div class="band-row">
+              <strong>{{ band.classification }}</strong>
+              <span>{{ band.range }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      </aside>
+
+      <section class="panel batch-panel" aria-labelledby="batch-title">
+        <div class="section-head">
+          <div>
+            <h2 id="batch-title">CSV batch</h2>
+            <p>Use columns: speed, bt, temperature, bz_gsm, density.</p>
+          </div>
+        </div>
+
+        <div class="uploader">
+          <input type="file" id="csvFile" accept=".csv,text/csv" />
+          <button class="ghost" id="templateBtn" type="button">Template CSV</button>
+        </div>
+
+        <div class="batch-actions">
+          <button class="primary" id="uploadBtn" type="button">Run batch</button>
+          <button class="ghost" id="clearBatchBtn" type="button">Clear</button>
+        </div>
+
+        <div class="error" id="batchErr" aria-live="polite"></div>
+        <div class="summary" id="batchSummary" aria-live="polite"></div>
+        <div class="invalid-list" id="invalidRows"></div>
+
+        <div class="table-wrap" id="tableWrap">
+          <table id="resultsTable"></table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const CONFIG = JSON.parse(document.getElementById("app-config").textContent);
+    const FEATURES = CONFIG.features.map((feature) => feature.key);
+    const BAND_ORDER = CONFIG.severity_bands.map((band) => band.classification);
+    const DEFAULTS = Object.fromEntries(CONFIG.features.map((feature) => [feature.key, feature.default]));
+
+    const singleForm = document.getElementById("singleForm");
+    const singleErr = document.getElementById("singleErr");
+    const scenarioText = document.getElementById("scenarioText");
+    const resultContent = document.getElementById("resultContent");
+    const emptyState = document.getElementById("emptyState");
+    const classTag = document.getElementById("classTag");
+    const dstValue = document.getElementById("dstValue");
+    const effects = document.getElementById("effects");
+    const severityMarker = document.getElementById("severityMarker");
+    const severityRange = document.getElementById("severityRange");
+    const predictBtn = document.getElementById("predictBtn");
+    const uploadBtn = document.getElementById("uploadBtn");
+
+    function setButtonLoading(button, isLoading, label) {
+      if (!button.dataset.label) {
+        button.dataset.label = button.textContent;
+      }
+      button.disabled = isLoading;
+      button.textContent = isLoading ? label : button.dataset.label;
+    }
+
+    function clearResultError() {
+      singleErr.textContent = "";
+    }
+
+    function payloadFromInputs() {
+      const payload = {};
+      for (const field of FEATURES) {
+        const input = document.getElementById(field);
+        if (input.value === "") {
+          throw new Error("Fill in every input before running a prediction.");
+        }
+        payload[field] = Number(input.value);
+      }
+      return payload;
+    }
+
+    function renderPrediction(data) {
+      const severity = data.severity || {};
+      const tone = severity.tone || String(data.classification || "quiet").toLowerCase();
+      const bandIndex = Math.max(0, BAND_ORDER.indexOf(data.classification));
+      const markerPosition = Math.min(96, 8 + bandIndex * 17.6);
+
+      classTag.className = `class-pill ${tone}`;
+      classTag.textContent = data.classification;
+      dstValue.textContent = Number(data.prediction).toFixed(2);
+      effects.textContent = data.effects;
+      severityRange.textContent = severity.range || "";
+      severityMarker.style.left = `${markerPosition}%`;
+      emptyState.style.display = "none";
+      resultContent.classList.add("show");
+    }
+
+    async function predictSingle() {
+      clearResultError();
+      let payload;
+      try {
+        payload = payloadFromInputs();
+      } catch (error) {
+        singleErr.textContent = error.message;
+        return;
+      }
+
+      setButtonLoading(predictBtn, true, "Running...");
+      try {
+        const response = await fetch("/predict", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Prediction failed.");
+        }
+        renderPrediction(data);
+      } catch (error) {
+        singleErr.textContent = error.message;
+      } finally {
+        setButtonLoading(predictBtn, false);
+      }
+    }
+
+    async function randomizeScenario() {
+      clearResultError();
+      try {
+        const response = await fetch("/randomize");
+        const data = await response.json();
+        FEATURES.forEach((field) => {
+          document.getElementById(field).value = data[field];
+        });
+        scenarioText.textContent = data.scenario ? `Scenario: ${data.scenario}` : "";
+      } catch (error) {
+        singleErr.textContent = "Could not load a scenario.";
+      }
+    }
+
+    function resetInputs() {
+      FEATURES.forEach((field) => {
+        document.getElementById(field).value = DEFAULTS[field];
+      });
+      scenarioText.textContent = "";
+      clearResultError();
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function renderTable(rows) {
+      const table = document.getElementById("resultsTable");
+      const tableWrap = document.getElementById("tableWrap");
+      const columns = [...FEATURES, "prediction", "classification", "effects"];
+      const header = columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("");
+      const body = rows.map((row) => {
+        const flattened = { ...row.input, ...row };
+        return `<tr>${columns.map((column) => `<td>${escapeHtml(flattened[column])}</td>`).join("")}</tr>`;
+      }).join("");
+
+      table.innerHTML = `<thead><tr>${header}</tr></thead><tbody>${body}</tbody>`;
+      tableWrap.style.display = "block";
+    }
+
+    async function uploadCsv() {
+      const batchErr = document.getElementById("batchErr");
+      const batchSummary = document.getElementById("batchSummary");
+      const invalidRows = document.getElementById("invalidRows");
+      const tableWrap = document.getElementById("tableWrap");
+      const fileInput = document.getElementById("csvFile");
+
+      batchErr.textContent = "";
+      batchSummary.textContent = "";
+      invalidRows.textContent = "";
+      tableWrap.style.display = "none";
+
+      if (!fileInput.files.length) {
+        batchErr.textContent = "Choose a CSV file first.";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      setButtonLoading(uploadBtn, true, "Running...");
+
+      try {
+        const response = await fetch("/predict", { method: "POST", body: formData });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Upload failed.");
+        }
+
+        renderTable(data.results);
+        const summary = data.summary || {};
+        batchSummary.textContent = `${summary.valid_rows} valid rows predicted from ${summary.total_rows} total rows.`;
+        if (summary.invalid_rows) {
+          invalidRows.textContent = `${summary.invalid_rows} rows were skipped.`;
+        }
+      } catch (error) {
+        batchErr.textContent = error.message;
+      } finally {
+        setButtonLoading(uploadBtn, false);
+      }
+    }
+
+    function downloadTemplate() {
+      const header = FEATURES.join(",");
+      const current = FEATURES.map((field) => document.getElementById(field).value || DEFAULTS[field]).join(",");
+      const storm = "780,24,420000,-18,22";
+      const csv = `${header}\n${current}\n${storm}\n`;
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "geomagnetic_batch_template.csv";
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function clearBatch() {
+      document.getElementById("csvFile").value = "";
+      document.getElementById("batchErr").textContent = "";
+      document.getElementById("batchSummary").textContent = "";
+      document.getElementById("invalidRows").textContent = "";
+      document.getElementById("tableWrap").style.display = "none";
+      document.getElementById("resultsTable").innerHTML = "";
+    }
+
+    singleForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      predictSingle();
+    });
+    document.getElementById("randomBtn").addEventListener("click", randomizeScenario);
+    document.getElementById("resetBtn").addEventListener("click", resetInputs);
+    document.getElementById("uploadBtn").addEventListener("click", uploadCsv);
+    document.getElementById("templateBtn").addEventListener("click", downloadTemplate);
+    document.getElementById("clearBatchBtn").addEventListener("click", clearBatch);
+  </script>
+</body>
+</html>
